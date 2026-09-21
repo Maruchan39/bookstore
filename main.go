@@ -13,13 +13,23 @@ import (
 	"gorm.io/gorm"
 )
 
+type User struct {
+	ID             uuid.UUID `gorm:"primaryKey"`
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	Username       string `gorm:"size:255;uniqueIndex"`
+	FirstName      string `gorm:"size:255"`
+	LastName       string `gorm:"size:255"`
+	HashedPassword string `gorm:"size:255"`
+}
+
 type Book struct {
 	// to add owner/userID
-	ID              uuid.UUID
+	ID              uuid.UUID `gorm:"primaryKey"`
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
-	Title           string
-	Author          string
+	Title           string `gorm:"size:255"`
+	Author          string `gorm:"size:255"`
 	PublicationDate time.Time
 	Genres          []string `gorm:"serializer:json"`
 	IsPrivate       bool
@@ -38,18 +48,26 @@ func main() {
 		log.Fatal("DB_URL environment variable is not set")
 	}
 
-	db, err := gorm.Open(mysql.Open(dbUrl), &gorm.Config{})
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET environment variable is not set")
+	}
+
+	db, err := gorm.Open(mysql.Open(dbUrl), &gorm.Config{
+		TranslateError: true,
+	})
 	if err != nil {
 		log.Fatal("failed to connect database")
 	}
 
-	if err := db.AutoMigrate(&Book{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &Book{}); err != nil {
 		log.Fatal("failed to migrate database")
 	}
 
 	cfg := Config{
-		port: port,
-		db:   db,
+		port:      port,
+		db:        db,
+		jwtSecret: jwtSecret,
 	}
 
 	mux := http.NewServeMux()
@@ -58,11 +76,13 @@ func main() {
 		Addr:    ":" + cfg.port,
 	}
 
-	mux.HandleFunc("POST /api/books", cfg.handleCreateBook)
-	mux.HandleFunc("GET /api/books", cfg.handleGetBooks)
-	mux.HandleFunc("GET /api/books/{bookID}", cfg.handleGetBook)
-	mux.HandleFunc("PUT /api/books/{bookID}", cfg.handleUpdateBook)
-	mux.HandleFunc("DELETE /api/books/{bookID}", cfg.handleDeleteBook)
+	mux.HandleFunc("POST /api/v1/users/signup", cfg.handleCreateUser)
+
+	mux.HandleFunc("POST /api/v1/books", cfg.handleCreateBook)
+	mux.HandleFunc("GET /api/v1/books", cfg.handleGetBooks)
+	mux.HandleFunc("GET /api/v1/books/{bookID}", cfg.handleGetBook)
+	mux.HandleFunc("PUT /api/v1/books/{bookID}", cfg.handleUpdateBook)
+	mux.HandleFunc("DELETE /api/v1/books/{bookID}", cfg.handleDeleteBook)
 
 	log.Printf("Serving on: http://localhost:%s\n", cfg.port)
 	log.Fatal(server.ListenAndServe())
