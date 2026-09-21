@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 
 	"gorm.io/driver/mysql"
@@ -13,13 +14,15 @@ import (
 )
 
 type Book struct {
-	ID          string `gorm:"type:varchar(36);primaryKey"`
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	Title       string  `gorm:"type:varchar(255);not null"`
-	Author      string  `gorm:"type:varchar(255);not null"`
-	Price       float64 `gorm:"type:decimal(10,2);not null;default:0"`
-	IsAvailable bool    `gorm:"not null;default:true"`
+	// to add owner/userID
+	ID              uuid.UUID
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	Title           string
+	Author          string
+	PublicationDate time.Time
+	Genres          []string `gorm:"serializer:json"`
+	IsPrivate       bool
 }
 
 func main() {
@@ -55,7 +58,12 @@ func main() {
 		Addr:    ":" + cfg.port,
 	}
 
+	mux.HandleFunc("POST /api/books", cfg.handleCreateBook)
+	mux.HandleFunc("GET /api/books", cfg.handleGetBooks)
+	mux.HandleFunc("GET /api/books/{bookID}", cfg.handleGetBook)
+	mux.HandleFunc("PUT /api/books/{bookID}", cfg.handleUpdateBook)
+	mux.HandleFunc("DELETE /api/books/{bookID}", cfg.handleDeleteBook)
+
 	log.Printf("Serving on: http://localhost:%s\n", cfg.port)
 	log.Fatal(server.ListenAndServe())
-
 }
