@@ -14,7 +14,7 @@ import (
 )
 
 type User struct {
-	ID             uuid.UUID `gorm:"primaryKey"`
+	ID             uuid.UUID `gorm:"type:char(36);primaryKey"`
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	Username       string `gorm:"size:255;uniqueIndex"`
@@ -24,8 +24,9 @@ type User struct {
 }
 
 type Book struct {
-	// to add owner/userID
-	ID              uuid.UUID `gorm:"primaryKey"`
+	ID              uuid.UUID `gorm:"type:char(36);primaryKey"`
+	UserID          uuid.UUID `gorm:"type:char(36);not null;index"`
+	User            User      `gorm:"foreignKey:UserID"`
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 	Title           string `gorm:"size:255"`
@@ -78,6 +79,8 @@ func main() {
 
 	mux.HandleFunc("POST /api/v1/users/signup", cfg.handleCreateUser)
 	mux.HandleFunc("POST /api/v1/users/login", cfg.handleLogin)
+
+	mux.HandleFunc("GET /api/v1/users/mybooks", cfg.handleGetUserBooks)
 
 	mux.HandleFunc("POST /api/v1/books", cfg.handleCreateBook)
 	mux.HandleFunc("GET /api/v1/books", cfg.handleGetBooks)

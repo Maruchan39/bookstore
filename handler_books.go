@@ -9,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	"github.com/Maruchan39/bookstore/internal/auth"
 )
 
 type bookResponse struct {
@@ -66,8 +68,21 @@ func (cfg *Config) handleCreateBook(w http.ResponseWriter, req *http.Request) {
 		isPrivate = *params.IsPrivate
 	}
 
+	bearerToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	userID, err := auth.ValidateJWT(bearerToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "invalid bearer token")
+		return
+	}
+
 	book := Book{
 		ID:              uuid.New(),
+		UserID:          userID,
 		Title:           params.Title,
 		Author:          params.Author,
 		PublicationDate: publicationDate,
@@ -94,11 +109,61 @@ func (cfg *Config) handleCreateBook(w http.ResponseWriter, req *http.Request) {
 }
 
 func (cfg *Config) handleGetBooks(w http.ResponseWriter, req *http.Request) {
-	// TO DO: Get all the books in the app that are either marked as public books or which belong to you.
+	bearerToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	userID, err := auth.ValidateJWT(bearerToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "invalid bearer token")
+		return
+	}
+
 	var books []Book
-	result := cfg.db.Find(&books)
+	result := cfg.db.Where("is_private = ? OR user_id = ?", false, userID).Find(&books)
 	if result.Error != nil {
-		respondWithError(w, http.StatusInternalServerError, result.Error.Error())
+		log.Printf("error getting books: %s", result.Error)
+		respondWithError(w, http.StatusInternalServerError, "could not get books")
+		return
+	}
+
+	response := make([]bookResponse, 0, len(books))
+	for _, book := range books {
+		response = append(response, bookResponse{
+			ID:              book.ID.String(),
+			CreatedAt:       book.CreatedAt,
+			UpdatedAt:       book.UpdatedAt,
+			Title:           book.Title,
+			Author:          book.Author,
+			PublicationDate: book.PublicationDate,
+			Genres:          book.Genres,
+			IsPrivate:       book.IsPrivate,
+		})
+	}
+
+	respondWithJSON(w, http.StatusOK, response)
+}
+
+func (cfg *Config) handleGetUserBooks(w http.ResponseWriter, req *http.Request) {
+	bearerToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	userID, err := auth.ValidateJWT(bearerToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "invalid bearer token")
+		return
+	}
+
+	var books []Book
+	result := cfg.db.Where("user_id = ?", userID).Find(&books)
+	if result.Error != nil {
+		log.Printf("error getting user books: %s", result.Error)
+		respondWithError(w, http.StatusInternalServerError, "could not get user books")
 		return
 	}
 
@@ -120,15 +185,26 @@ func (cfg *Config) handleGetBooks(w http.ResponseWriter, req *http.Request) {
 }
 
 func (cfg *Config) handleGetBook(w http.ResponseWriter, req *http.Request) {
-	// TO DO: The book will only be returned if you own it or its owner has marked it as a public book
 	bookID, err := uuid.Parse(req.PathValue("bookID"))
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "invalid book ID")
 		return
 	}
 
+	bearerToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	userID, err := auth.ValidateJWT(bearerToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "invalid bearer token")
+		return
+	}
+
 	var book Book
-	result := cfg.db.Where("id = ?", bookID).First(&book)
+	result := cfg.db.Where("id = ? AND (is_private = ? OR user_id = ?)", bookID, false, userID).First(&book)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			respondWithError(w, http.StatusNotFound, "book not found")
@@ -152,7 +228,6 @@ func (cfg *Config) handleGetBook(w http.ResponseWriter, req *http.Request) {
 }
 
 func (cfg *Config) handleUpdateBook(w http.ResponseWriter, req *http.Request) {
-	// TO DO: to add owner/userID check so that only the owner can update the book
 	type parameters struct {
 		Title           *string   `json:"title"`
 		Author          *string   `json:"author"`
@@ -167,8 +242,20 @@ func (cfg *Config) handleUpdateBook(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	bearerToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	userID, err := auth.ValidateJWT(bearerToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "invalid bearer token")
+		return
+	}
+
 	var book Book
-	result := cfg.db.Where("id = ?", bookID).First(&book)
+	result := cfg.db.Where("id = ? AND user_id = ?", bookID, userID).First(&book)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			respondWithError(w, http.StatusNotFound, "book not found")
@@ -243,15 +330,26 @@ func (cfg *Config) handleUpdateBook(w http.ResponseWriter, req *http.Request) {
 }
 
 func (cfg *Config) handleDeleteBook(w http.ResponseWriter, req *http.Request) {
-	// TO DO: to add owner/userID check so that only the owner can delete the book
 	bookID, err := uuid.Parse(req.PathValue("bookID"))
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "invalid book ID")
 		return
 	}
 
+	bearerToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	userID, err := auth.ValidateJWT(bearerToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "invalid bearer token")
+		return
+	}
+
 	var book Book
-	result := cfg.db.Where("id = ?", bookID).First(&book)
+	result := cfg.db.Where("id = ? AND user_id = ?", bookID, userID).First(&book)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			respondWithError(w, http.StatusNotFound, "book not found")

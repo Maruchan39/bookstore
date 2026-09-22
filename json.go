@@ -9,7 +9,7 @@ import (
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	dat, err := json.Marshal(payload)
 	if err != nil {
-		log.Printf("Error marshalling JSON: %s", err)
+		log.Printf("error marshalling JSON: %s", err)
 		w.WriteHeader(500)
 		return
 	}
@@ -28,7 +28,7 @@ func respondWithError(w http.ResponseWriter, code int, msg string) {
 	}
 	dat, err := json.Marshal(respBody)
 	if err != nil {
-		log.Printf("Error marshalling JSON: %s", err)
+		log.Printf("error marshalling JSON: %s", err)
 		w.WriteHeader(500)
 		return
 	}

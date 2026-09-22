@@ -82,7 +82,7 @@ func (cfg *Config) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 
 	token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, expiresIn)
 	if err != nil {
-		log.Printf("Error generating JWT token: %s", err)
+		log.Printf("error generating JWT token: %s", err)
 		w.WriteHeader(500)
 		return
 	}
@@ -106,7 +106,7 @@ func (cfg *Config) handleLogin(w http.ResponseWriter, req *http.Request) {
 	params := parameters{}
 
 	if err := decoder.Decode(&params); err != nil {
-		log.Printf("Error decoding parameters: %s", err)
+		log.Printf("error decoding parameters: %s", err)
 		respondWithError(w, http.StatusBadRequest, "could not decode parameters")
 		return
 	}
@@ -118,14 +118,14 @@ func (cfg *Config) handleLogin(w http.ResponseWriter, req *http.Request) {
 			respondWithError(w, http.StatusUnauthorized, "Incorrect email or password")
 			return
 		}
-		log.Printf("Error finding user: %s", result.Error)
+		log.Printf("error finding user: %s", result.Error)
 		respondWithError(w, http.StatusInternalServerError, "could not find user")
 		return
 	}
 
 	match, err := auth.CheckPasswordHash(params.Password, user.HashedPassword)
 	if err != nil {
-		log.Printf("Error checking password: %s", err)
+		log.Printf("error checking password: %s", err)
 		respondWithError(w, http.StatusInternalServerError, "could not check password")
 		return
 	}
@@ -139,7 +139,7 @@ func (cfg *Config) handleLogin(w http.ResponseWriter, req *http.Request) {
 
 	token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, expiresIn)
 	if err != nil {
-		log.Printf("Error generating JWT token: %s", err)
+		log.Printf("error generating JWT token: %s", err)
 		respondWithError(w, http.StatusInternalServerError, "could not generate token")
 		return
 	}
