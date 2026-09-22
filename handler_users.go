@@ -96,6 +96,63 @@ func (cfg *Config) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
+func (cfg *Config) handleLogin(w http.ResponseWriter, req *http.Request) {
+	type parameters struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+
+	decoder := json.NewDecoder(req.Body)
+	params := parameters{}
+
+	if err := decoder.Decode(&params); err != nil {
+		log.Printf("Error decoding parameters: %s", err)
+		respondWithError(w, http.StatusBadRequest, "could not decode parameters")
+		return
+	}
+
+	var user User
+	result := cfg.db.Where("username = ?", params.Username).First(&user)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			respondWithError(w, http.StatusUnauthorized, "Incorrect email or password")
+			return
+		}
+		log.Printf("Error finding user: %s", result.Error)
+		respondWithError(w, http.StatusInternalServerError, "could not find user")
+		return
+	}
+
+	match, err := auth.CheckPasswordHash(params.Password, user.HashedPassword)
+	if err != nil {
+		log.Printf("Error checking password: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "could not check password")
+		return
+	}
+
+	if !match {
+		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password")
+		return
+	}
+
+	expiresIn := time.Hour
+
+	token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, expiresIn)
+	if err != nil {
+		log.Printf("Error generating JWT token: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "could not generate token")
+		return
+	}
+
+	type response struct {
+		Token string `json:"token"`
+	}
+
+	respondWithJSON(w, http.StatusOK, response{
+		Token: token,
+	})
+}
+
 func isValidEmail(username string) bool {
 	address, err := mail.ParseAddress(username)
 	if err != nil {

@@ -77,6 +77,7 @@ func main() {
 	}
 
 	mux.HandleFunc("POST /api/v1/users/signup", cfg.handleCreateUser)
+	mux.HandleFunc("POST /api/v1/users/login", cfg.handleLogin)
 
 	mux.HandleFunc("POST /api/v1/books", cfg.handleCreateBook)
 	mux.HandleFunc("GET /api/v1/books", cfg.handleGetBooks)
