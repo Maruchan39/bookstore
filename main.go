@@ -4,37 +4,11 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
-	"github.com/google/uuid"
 	"github.com/joho/godotenv"
-
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
-
-type User struct {
-	ID             uuid.UUID `gorm:"type:char(36);primaryKey"`
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	Username       string `gorm:"size:255;uniqueIndex"`
-	FirstName      string `gorm:"size:255"`
-	LastName       string `gorm:"size:255"`
-	HashedPassword string `gorm:"size:255"`
-}
-
-type Book struct {
-	ID              uuid.UUID `gorm:"type:char(36);primaryKey"`
-	UserID          uuid.UUID `gorm:"type:char(36);not null;index"`
-	User            User      `gorm:"foreignKey:UserID"`
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	Title           string `gorm:"size:255"`
-	Author          string `gorm:"size:255"`
-	PublicationDate time.Time
-	Genres          []string `gorm:"serializer:json"`
-	IsPrivate       bool
-}
 
 func main() {
 	godotenv.Load(".env")
@@ -80,13 +54,13 @@ func main() {
 	mux.HandleFunc("POST /api/v1/users/signup", cfg.handleCreateUser)
 	mux.HandleFunc("POST /api/v1/users/login", cfg.handleLogin)
 
-	mux.HandleFunc("GET /api/v1/users/mybooks", cfg.handleGetUserBooks)
+	mux.Handle("GET /api/v1/users/mybooks", cfg.requireAuth(http.HandlerFunc(cfg.handleGetUserBooks)))
 
-	mux.HandleFunc("POST /api/v1/books", cfg.handleCreateBook)
-	mux.HandleFunc("GET /api/v1/books", cfg.handleGetBooks)
-	mux.HandleFunc("GET /api/v1/books/{bookID}", cfg.handleGetBook)
-	mux.HandleFunc("PUT /api/v1/books/{bookID}", cfg.handleUpdateBook)
-	mux.HandleFunc("DELETE /api/v1/books/{bookID}", cfg.handleDeleteBook)
+	mux.Handle("POST /api/v1/books", cfg.requireAuth(http.HandlerFunc(cfg.handleCreateBook)))
+	mux.Handle("GET /api/v1/books", cfg.requireAuth(http.HandlerFunc(cfg.handleGetBooks)))
+	mux.Handle("GET /api/v1/books/{bookID}", cfg.requireAuth(http.HandlerFunc(cfg.handleGetBook)))
+	mux.Handle("PUT /api/v1/books/{bookID}", cfg.requireAuth(http.HandlerFunc(cfg.handleUpdateBook)))
+	mux.Handle("DELETE /api/v1/books/{bookID}", cfg.requireAuth(http.HandlerFunc(cfg.handleDeleteBook)))
 
 	log.Printf("Serving on: http://localhost:%s\n", cfg.port)
 	log.Fatal(server.ListenAndServe())

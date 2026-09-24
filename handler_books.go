@@ -9,8 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-
-	"github.com/Maruchan39/bookstore/internal/auth"
 )
 
 type bookResponse struct {
@@ -25,6 +23,12 @@ type bookResponse struct {
 }
 
 func (cfg *Config) handleCreateBook(w http.ResponseWriter, req *http.Request) {
+	userID, ok := req.Context().Value(userIDContextKey).(uuid.UUID)
+	if !ok {
+		respondWithError(w, http.StatusInternalServerError, "authenticated user ID missing")
+		return
+	}
+
 	type parameters struct {
 		Title           string   `json:"title"`
 		Author          string   `json:"author"`
@@ -68,18 +72,6 @@ func (cfg *Config) handleCreateBook(w http.ResponseWriter, req *http.Request) {
 		isPrivate = *params.IsPrivate
 	}
 
-	bearerToken, err := auth.GetBearerToken(req.Header)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, err.Error())
-		return
-	}
-
-	userID, err := auth.ValidateJWT(bearerToken, cfg.jwtSecret)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "invalid bearer token")
-		return
-	}
-
 	book := Book{
 		ID:              uuid.New(),
 		UserID:          userID,
@@ -109,15 +101,9 @@ func (cfg *Config) handleCreateBook(w http.ResponseWriter, req *http.Request) {
 }
 
 func (cfg *Config) handleGetBooks(w http.ResponseWriter, req *http.Request) {
-	bearerToken, err := auth.GetBearerToken(req.Header)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, err.Error())
-		return
-	}
-
-	userID, err := auth.ValidateJWT(bearerToken, cfg.jwtSecret)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "invalid bearer token")
+	userID, ok := req.Context().Value(userIDContextKey).(uuid.UUID)
+	if !ok {
+		respondWithError(w, http.StatusInternalServerError, "authenticated user ID missing")
 		return
 	}
 
@@ -147,15 +133,9 @@ func (cfg *Config) handleGetBooks(w http.ResponseWriter, req *http.Request) {
 }
 
 func (cfg *Config) handleGetUserBooks(w http.ResponseWriter, req *http.Request) {
-	bearerToken, err := auth.GetBearerToken(req.Header)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, err.Error())
-		return
-	}
-
-	userID, err := auth.ValidateJWT(bearerToken, cfg.jwtSecret)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "invalid bearer token")
+	userID, ok := req.Context().Value(userIDContextKey).(uuid.UUID)
+	if !ok {
+		respondWithError(w, http.StatusInternalServerError, "authenticated user ID missing")
 		return
 	}
 
@@ -185,21 +165,15 @@ func (cfg *Config) handleGetUserBooks(w http.ResponseWriter, req *http.Request) 
 }
 
 func (cfg *Config) handleGetBook(w http.ResponseWriter, req *http.Request) {
+	userID, ok := req.Context().Value(userIDContextKey).(uuid.UUID)
+	if !ok {
+		respondWithError(w, http.StatusInternalServerError, "authenticated user ID missing")
+		return
+	}
+
 	bookID, err := uuid.Parse(req.PathValue("bookID"))
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "invalid book ID")
-		return
-	}
-
-	bearerToken, err := auth.GetBearerToken(req.Header)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, err.Error())
-		return
-	}
-
-	userID, err := auth.ValidateJWT(bearerToken, cfg.jwtSecret)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "invalid bearer token")
 		return
 	}
 
@@ -228,6 +202,12 @@ func (cfg *Config) handleGetBook(w http.ResponseWriter, req *http.Request) {
 }
 
 func (cfg *Config) handleUpdateBook(w http.ResponseWriter, req *http.Request) {
+	userID, ok := req.Context().Value(userIDContextKey).(uuid.UUID)
+	if !ok {
+		respondWithError(w, http.StatusInternalServerError, "authenticated user ID missing")
+		return
+	}
+
 	type parameters struct {
 		Title           *string   `json:"title"`
 		Author          *string   `json:"author"`
@@ -239,18 +219,6 @@ func (cfg *Config) handleUpdateBook(w http.ResponseWriter, req *http.Request) {
 	bookID, err := uuid.Parse(req.PathValue("bookID"))
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "invalid book ID")
-		return
-	}
-
-	bearerToken, err := auth.GetBearerToken(req.Header)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, err.Error())
-		return
-	}
-
-	userID, err := auth.ValidateJWT(bearerToken, cfg.jwtSecret)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "invalid bearer token")
 		return
 	}
 
@@ -330,21 +298,15 @@ func (cfg *Config) handleUpdateBook(w http.ResponseWriter, req *http.Request) {
 }
 
 func (cfg *Config) handleDeleteBook(w http.ResponseWriter, req *http.Request) {
+	userID, ok := req.Context().Value(userIDContextKey).(uuid.UUID)
+	if !ok {
+		respondWithError(w, http.StatusInternalServerError, "authenticated user ID missing")
+		return
+	}
+
 	bookID, err := uuid.Parse(req.PathValue("bookID"))
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "invalid book ID")
-		return
-	}
-
-	bearerToken, err := auth.GetBearerToken(req.Header)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, err.Error())
-		return
-	}
-
-	userID, err := auth.ValidateJWT(bearerToken, cfg.jwtSecret)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "invalid bearer token")
 		return
 	}
 
