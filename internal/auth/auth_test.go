@@ -50,31 +50,29 @@ func TestJWT(t *testing.T) {
 	}
 }
 
-func TestGetBearerToken(t *testing.T) {
+func TestGetAuthenticationToken(t *testing.T) {
 	cases := []struct {
 		name   string
 		header string
 		want   string
 		err    string
 	}{
-		{"header is absent", "", "", "missing Authorization header"},
-		{"uses basic auth", "Basic username:password", "", "malformed Authorization header"},
-		{"bearer value is empty", "Bearer ", "", "missing bearer token"},
-		{"contains a token", "Bearer token-from-request", "token-from-request", ""},
+		{"header is absent", "", "", "missing x-book-store-authentication header"},
+		{"header contains a token", "token-from-request", "token-from-request", ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			headers := http.Header{}
 			if tc.header != "" {
-				headers.Set("Authorization", tc.header)
+				headers.Set(AuthenticationHeader, tc.header)
 			}
-			got, err := GetBearerToken(headers)
+			got, err := GetAuthenticationToken(headers)
 			gotErr := ""
 			if err != nil {
 				gotErr = err.Error()
 			}
 			if got != tc.want || gotErr != tc.err {
-				t.Fatalf("GetBearerToken() = %q, %q; want %q, %q", got, gotErr, tc.want, tc.err)
+				t.Fatalf("GetAuthenticationToken() = %q, %q; want %q, %q", got, gotErr, tc.want, tc.err)
 			}
 		})
 	}

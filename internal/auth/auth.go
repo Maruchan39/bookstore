@@ -3,7 +3,6 @@ package auth
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/alexedwards/argon2id"
@@ -62,21 +61,16 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 	return userID, nil
 }
 
-func GetBearerToken(headers http.Header) (string, error) {
-	auth := headers.Get("Authorization")
-	if auth == "" {
-		return "", fmt.Errorf("missing Authorization header")
-	}
+const authenticationHeader = "x-book-store-authentication"
 
-	const prefix = "Bearer "
-	if !strings.HasPrefix(auth, prefix) {
-		return "", fmt.Errorf("malformed Authorization header")
-	}
-
-	token := strings.TrimPrefix(auth, prefix)
+func GetAuthenticationToken(headers http.Header) (string, error) {
+	token := headers.Get(authenticationHeader)
 	if token == "" {
-		return "", fmt.Errorf("missing bearer token")
+		return "", fmt.Errorf("missing %s header", authenticationHeader)
 	}
 
 	return token, nil
 }
+
+const AuthenticationHeader = authenticationHeader
+

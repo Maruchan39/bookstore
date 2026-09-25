@@ -16,7 +16,7 @@ func TestRequireAuth(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got, ok := r.Context().Value(userIDContextKey).(uuid.UUID)
 		if !ok || got != userID {
-			t.Fatalf("context user ID = %v, %v; want %v", got, ok, userID)
+			t.Fatalf("context user ID = %v, %v; want %v, %v", got, ok, userID, true)
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
@@ -25,15 +25,16 @@ func TestRequireAuth(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		header string
+		value  string
 	}{
-		{"no authorization header", ""},
-		{"basic auth is not bearer auth", "Basic username:password"},
-		{"token is not valid", "Bearer definitely-not-a-jwt"},
+		{"no authentication header", "", ""},
+		{"authorization header is ignored", "Authorization", "Bearer definitely-not-a-jwt"},
+		{"token is not valid", auth.AuthenticationHeader, "definitely-not-a-jwt"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/private", nil)
 			if tc.header != "" {
-				req.Header.Set("Authorization", tc.header)
+				req.Header.Set(tc.header, tc.value)
 			}
 			recorder := httptest.NewRecorder()
 			handler.ServeHTTP(recorder, req)
@@ -49,7 +50,7 @@ func TestRequireAuth(t *testing.T) {
 			t.Fatal(err)
 		}
 		req := httptest.NewRequest(http.MethodGet, "/private", nil)
-		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set(auth.AuthenticationHeader, token)
 		recorder := httptest.NewRecorder()
 		handler.ServeHTTP(recorder, req)
 		if recorder.Code != http.StatusNoContent {
